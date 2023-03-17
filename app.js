@@ -4,6 +4,7 @@ const nodemailer = require('nodemailer');
 const qr = require('qrcode');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
+require('dotenv').config();
 
 const app = express();
 app.use(bodyParser.json());
@@ -33,7 +34,7 @@ const options = {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Connexion à la base de données SQLite
-const db = process.env.NODE_ENV === 'test' ? new sqlite3.Database(':memory:') : new sqlite3.Database('payetonkawaDB.db');
+const db = process.env.NODE_ENV === 'test' ? new sqlite3.Database('db_test.db') : new sqlite3.Database('payetonkawaDB.db');
 // Remplacez ":memory:" par le nom de votre fichier de base de données s'il existe déjà
 /*db.serialize(() => {
   // Création de la table "produits"
@@ -75,6 +76,13 @@ const db = process.env.NODE_ENV === 'test' ? new sqlite3.Database(':memory:') : 
  *   get:
  *     summary: Récupérer la liste des produits
  *     description: Récupère la liste de tous les produits de la base de données.
+ *     parameters:
+ *       - name: token_Authentification
+ *         in: query
+ *         description: Le token d'authentification de l'utilisateur.
+ *         required: true
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
  *         description: La liste des produits
@@ -98,20 +106,38 @@ const db = process.env.NODE_ENV === 'test' ? new sqlite3.Database(':memory:') : 
  *                     type: number
  *                     format: float
  *                     description: Le prix du produit
+ *       401:
+ *         description: L'utilisateur n'est pas authentifié.
  *       500:
  *         description: Une erreur est survenue.
  */
 // Route pour obtenir la liste de produits
 app.get('/produits', (req, res) => {
-    db.all('SELECT p.*, s.quantite FROM produits p LEFT JOIN stock s ON p.id = s.produit_id', (err, rows) => {
-      if (err) {
-        console.error(err);
-        res.status(500).send('Une erreur est survenue.');
-      } else {
-        res.json(rows);
-      }
-    });
+  const token = req.query.token_Authentification;
+  if (!token) {
+    res.status(401).send('L\'utilisateur n\'est pas authentifié.');
+    return;
+  }
+  
+  db.get('SELECT * FROM utilisateurs WHERE token = ?', [token], (err, row) => {
+    if (err) {
+      console.error(err);
+      res.status(500).send('Une erreur est survenue.');
+    } else if (!row) {
+      res.status(401).send('L\'utilisateur n\'est pas authentifié.');
+    } else {
+      db.all('SELECT p.*, s.quantite FROM produits p LEFT JOIN stock s ON p.id = s.produit_id', (err, rows) => {
+        if (err) {
+          console.error(err);
+          res.status(500).send('Une erreur est survenue.');
+        } else {
+          res.json(rows);
+        }
+      });
+    }
   });
+});
+
   
 
 /**
