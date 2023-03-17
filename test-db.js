@@ -1,5 +1,5 @@
 const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database(':memory:');
+const db = new sqlite3.Database('db_test.db');
 
 db.serialize(() => {
   // Création de la table "produits"
